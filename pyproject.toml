@@ -10,3 +10,7 @@ dev = ["pytest"]
 
 [project.scripts]
 pow = "pow.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pow*", "models*"]
+exclude = ["exports*", "adapters*", "tests*", "examples*"]

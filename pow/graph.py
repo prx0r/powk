@@ -177,7 +177,7 @@ class Graph:
                 continue
             if mode == "knowledge" and o.observed_at > at:
                 continue
-            if o.effective_at > at:
+            if o.effective_at > at and o.observed_at > at:
                 continue
             key = (o.subject, o.metric)
             if key not in obs_map or o.effective_at > obs_map[key].effective_at:
