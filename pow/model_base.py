@@ -21,12 +21,12 @@ from .model import Derivation, make_deriv_id
 
 
 def hash_file(path: str) -> str:
-    """SHA-256 of a file's exact bytes, truncated to 16 hex chars."""
+    """SHA-256 of a file's exact bytes (full 64 hex chars)."""
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
-    return h.hexdigest()[:16]
+    return h.hexdigest()
 
 
 class Model(ABC):
@@ -63,7 +63,7 @@ class Model(ABC):
         except Exception:
             pass
         # Last resort: hash class name (explicitly unreliable)
-        return hashlib.sha256(type(self).__name__.encode()).hexdigest()[:16]
+        return hashlib.sha256(type(self).__name__.encode()).hexdigest()
 
     @abstractmethod
     def requirements(self, snapshot: Snapshot = None) -> list:

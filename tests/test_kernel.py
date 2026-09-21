@@ -68,12 +68,11 @@ class TestModel:
         assert "utilisation" not in d
         assert "lead_time" not in d
 
-    def test_edge_with_coefficient(self):
-        e = Edge(id="e1", source="a", target="b", relation="REQUIRES",
-                 coefficient=4.2, coefficient_unit="worker_hours/MW")
+    def test_edge_no_coefficients(self):
+        e = Edge(id="e1", source="a", target="b", relation="REQUIRES")
         d = e.to_dict()
-        assert d["coefficient"] == 4.2
-        assert d["coefficient_unit"] == "worker_hours/MW"
+        assert "coefficient" not in d
+        assert "coefficient_unit" not in d
 
     def test_observation_bitemporal(self):
         o = Observation(

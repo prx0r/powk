@@ -184,9 +184,8 @@ class Graph:
                 continue
             if edge.valid_to and edge.valid_to <= at:
                 continue
-            if mode == "knowledge" and hasattr(edge, 'observed_at') and edge.observed_at:
-                if edge.observed_at > at:
-                    continue
+            if mode == "knowledge" and edge.observed_at and edge.observed_at > at:
+                continue
             if edge.source not in nodes or edge.target not in nodes:
                 continue
             edges[eid] = edge
@@ -196,9 +195,11 @@ class Graph:
         for o in self.observations:
             if o.subject not in nodes and o.subject not in edges:
                 continue
-            if mode == "knowledge" and o.observed_at > at:
+            # World mode: effective_at must be <= at
+            if o.effective_at > at:
                 continue
-            if o.effective_at > at and o.observed_at > at:
+            # Knowledge mode: also require observed_at <= at
+            if mode == "knowledge" and o.observed_at > at:
                 continue
             key = (o.subject, o.metric)
             if key not in obs_map:
@@ -244,8 +245,8 @@ class Graph:
             self.add(Node(**{k: item[k] for k in ("id", "kind", "label") if k in item}))
         for item in data.get("edges", []):
             self.add(Edge(**{k: item[k] for k in
-                ("id", "source", "target", "relation", "coefficient", "coefficient_unit",
-                 "valid_from", "valid_to") if k in item}))
+                ("id", "source", "target", "relation",
+                 "valid_from", "valid_to", "observed_at") if k in item}))
         for item in data.get("observations", []):
             self.add(Observation(**{k: item[k] for k in
                 ("id", "subject", "metric", "value", "unit",

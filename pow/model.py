@@ -33,6 +33,7 @@ class Node:
     label: str
     valid_from: Optional[str] = None  # ISO date when this node definition became valid
     valid_to: Optional[str] = None    # ISO date when it was superseded (None = still valid)
+    observed_at: Optional[str] = None  # ISO timestamp — when we learned about this node
 
     def to_dict(self) -> dict:
         d = {"id": self.id, "kind": self.kind, "label": self.label}
@@ -40,6 +41,8 @@ class Node:
             d["valid_from"] = self.valid_from
         if self.valid_to:
             d["valid_to"] = self.valid_to
+        if self.observed_at:
+            d["observed_at"] = self.observed_at
         return d
 
 
@@ -47,18 +50,17 @@ class Node:
 class Edge:
     """A structural dependency: A REQUIRES B.
 
-    Contains only the structural proposition and optionally a coefficient.
-    All time-varying properties (capacity, utilisation, lead_time, etc.)
+    Contains only the structural proposition.
+    All time-varying properties (capacity, utilisation, lead_time, coefficient, etc.)
     are OBSERVATIONs targeting this edge.
     """
     id: str
     source: str  # node.id (the dependent)
     target: str  # node.id (the dependency)
     relation: str  # only "REQUIRES"
-    coefficient: Optional[float] = None
-    coefficient_unit: Optional[str] = None
     valid_from: Optional[str] = None
     valid_to: Optional[str] = None
+    observed_at: Optional[str] = None  # ISO timestamp — when we learned about this edge
 
     def to_dict(self) -> dict:
         d = {
@@ -67,14 +69,12 @@ class Edge:
             "target": self.target,
             "relation": self.relation,
         }
-        if self.coefficient is not None:
-            d["coefficient"] = self.coefficient
-        if self.coefficient_unit is not None:
-            d["coefficient_unit"] = self.coefficient_unit
         if self.valid_from:
             d["valid_from"] = self.valid_from
         if self.valid_to:
             d["valid_to"] = self.valid_to
+        if self.observed_at:
+            d["observed_at"] = self.observed_at
         return d
 
 
