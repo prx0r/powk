@@ -1,22 +1,22 @@
 {
   "nodes": [
-    {"id": "compute:ai_inference", "kind": "capacity", "label": "AI inference capacity"},
-    {"id": "compute:gpu_supply", "kind": "equipment", "label": "GPU supply"},
-    {"id": "compute:hbm_supply", "kind": "component", "label": "HBM memory supply"},
-    {"id": "compute:fab_capacity", "kind": "equipment", "label": "Semiconductor fab capacity"}
+    {"id": "compute:ai_inference", "kind": "capability", "label": "AI Inference Demand"},
+    {"id": "compute:gpu", "kind": "equipment", "label": "GPU Supply"},
+    {"id": "compute:hbm", "kind": "component", "label": "HBM Supply"},
+    {"id": "compute:fab", "kind": "equipment", "label": "Fab Capacity"}
   ],
   "edges": [
-    {"id": "edge:ai_gpu", "source": "compute:ai_inference", "target": "compute:gpu_supply", "relation": "REQUIRES"},
-    {"id": "edge:gpu_hbm", "source": "compute:gpu_supply", "target": "compute:hbm_supply", "relation": "REQUIRES"},
-    {"id": "edge:hbm_fab", "source": "compute:hbm_supply", "target": "compute:fab_capacity", "relation": "REQUIRES"}
+    {"id": "edge:ai_gpu", "source": "compute:ai_inference", "target": "compute:gpu", "relation": "REQUIRES"},
+    {"id": "edge:gpu_hbm", "source": "compute:gpu", "target": "compute:hbm", "relation": "REQUIRES"},
+    {"id": "edge:hbm_fab", "source": "compute:hbm", "target": "compute:fab", "relation": "REQUIRES"}
   ],
   "observations": [
-    {"id": "obs:ai_capacity", "metric": "capacity", "subject": "compute:ai_inference", "value": 10000, "unit": "PFLOPS", "as_of": "2026-09-01", "source": "powcompute"},
-    {"id": "obs:gpu_capacity", "metric": "capacity", "subject": "compute:gpu_supply", "value": 2000000, "unit": "units/year", "as_of": "2026-09-01", "source": "powcompute"},
-    {"id": "obs:hbm_capacity", "metric": "capacity", "subject": "compute:hbm_supply", "value": 500, "unit": "TB/year", "as_of": "2026-09-01", "source": "powcompute"},
-    {"id": "obs:fab_capacity", "metric": "capacity", "subject": "compute:fab_capacity", "value": 100, "unit": "wafers/month", "as_of": "2026-09-01", "source": "powcompute"}
+    {"id": "obs:ai_cap", "subject": "compute:ai_inference", "metric": "capacity", "value": 10000, "unit": "PFLOPS", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-15T00:00:00Z", "source_dataset": "powpowpow:aggregated"},
+    {"id": "obs:gpu_cap", "subject": "compute:gpu", "metric": "capacity", "value": 2000000, "unit": "units/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-02-01T00:00:00Z", "source_dataset": "powpowpow:market"},
+    {"id": "obs:hbm_cap", "subject": "compute:hbm", "metric": "capacity", "value": 500, "unit": "TB/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-20T00:00:00Z", "source_dataset": "powflow:semiconductor"},
+    {"id": "obs:fab_cap", "subject": "compute:fab", "metric": "capacity", "value": 100, "unit": "wafers/month", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-02-15T00:00:00Z", "source_dataset": "powflow:industry"}
   ],
   "evidence": [
-    {"id": "ev:hbm_bottleneck", "claim": "HBM3E production constrained by advanced packaging", "target": "obs:hbm_capacity", "direction": "QUANTIFIES", "source_uri": "https://example.com/semicon", "publisher": "Industry Analysis", "observed_at": "2026-09-01", "value": 500, "unit": "TB/year"}
+    {"id": "ev:hbm_constraint", "target": "obs:hbm_cap", "direction": "QUANTIFIES", "claim": "HBM3E constrained by advanced packaging", "publisher": "Industry", "published_at": "2025-12-01T00:00:00Z", "source_uri": null}
   ]
 }

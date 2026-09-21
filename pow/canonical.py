@@ -1,21 +1,23 @@
-"""Content-addressed IDs and canonical forms.
+"""Canonical serialization and content-addressed IDs.
 
-Same inputs → same ID. Always.
+IDs are content-addressed for immutable RECORDS (observations, evidence, derivations).
+NODEs use stable domain-supplied IDs (not content-addressed).
 """
+
 import hashlib
 import json
 
 
-def canonical(obj):
-    """Canonical JSON serialization. Keys sorted, no whitespace, no trailing commas."""
+def canonical(obj) -> str:
+    """Deterministic JSON serialization."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
 
 
-def content_id(obj):
-    """SHA-256 of canonical form, first 16 hex chars."""
+def content_id(obj) -> str:
+    """SHA-256 of canonical form, truncated to 16 hex chars."""
     return hashlib.sha256(canonical(obj).encode()).hexdigest()[:16]
 
 
-def make_id(prefix, obj):
-    """Prefix:content_id. E.g. node:a1b2c3d4e5f6g7h8."""
+def make_id(prefix: str, obj) -> str:
+    """Content-addressed ID with prefix."""
     return f"{prefix}:{content_id(obj)}"

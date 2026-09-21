@@ -1,1 +1,0 @@
-"""POWKernel models."""

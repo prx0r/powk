@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    {"id": "powai:inference_demand", "kind": "capability", "label": "AI Inference Demand"},
+    {"id": "powuk:datacentre", "kind": "capability", "label": "Datacentre Capacity"},
+    {"id": "powuk:grid_connection", "kind": "equipment", "label": "Grid Connection"},
+    {"id": "powflow:transformer", "kind": "equipment", "label": "Distribution Transformer"},
+    {"id": "powflow:copper", "kind": "resource", "label": "Copper Supply"}
+  ],
+  "edges": [
+    {"id": "edge:ai_dc", "source": "powai:inference_demand", "target": "powuk:datacentre", "relation": "REQUIRES"},
+    {"id": "edge:dc_grid", "source": "powuk:datacentre", "target": "powuk:grid_connection", "relation": "REQUIRES"},
+    {"id": "edge:grid_trans", "source": "powuk:grid_connection", "target": "powflow:transformer", "relation": "REQUIRES"},
+    {"id": "edge:trans_copper", "source": "powflow:transformer", "target": "powflow:copper", "relation": "REQUIRES"}
+  ],
+  "observations": [
+    {"id": "obs:ai_demand", "subject": "powai:inference_demand", "metric": "capacity", "value": 50000, "unit": "PFLOPS", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-15T00:00:00Z", "source_dataset": "powai:benchmarks"},
+    {"id": "obs:dc_cap", "subject": "powuk:datacentre", "metric": "capacity", "value": 5000, "unit": "MW", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-15T00:00:00Z", "source_dataset": "powuk:planning"},
+    {"id": "obs:grid_cap", "subject": "powuk:grid_connection", "metric": "capacity", "value": 2000, "unit": "MW", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-20T00:00:00Z", "source_dataset": "powuk:neso"},
+    {"id": "obs:trans_cap", "subject": "powflow:transformer", "metric": "capacity", "value": 800, "unit": "units/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-02-01T00:00:00Z", "source_dataset": "powflow:industry"},
+    {"id": "obs:cu_cap", "subject": "powflow:copper", "metric": "capacity", "value": 25000, "unit": "tonnes/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-25T00:00:00Z", "source_dataset": "powflow:trade"}
+  ],
+  "evidence": []
+}

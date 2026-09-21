@@ -1,0 +1,12 @@
+[project]
+name = "powkernel"
+version = "0.2.0"
+description = "Deterministic Layer-2 substrate for dependency constraint analysis"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+pow = "pow.__main__:main"

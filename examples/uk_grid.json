@@ -1,26 +1,26 @@
 {
   "nodes": [
-    {"id": "uk:data_centre_capacity", "kind": "capacity", "label": "UK data centre capacity"},
-    {"id": "uk:grid_connection_capacity", "kind": "capacity", "label": "Grid connection capacity"},
-    {"id": "uk:transformer_capacity", "kind": "equipment", "label": "Distribution transformer capacity"},
-    {"id": "uk:electrical_steel_supply", "kind": "resource", "label": "Electrical steel supply"},
-    {"id": "uk:hv_electrician", "kind": "capability", "label": "HV electrician capacity"}
+    {"id": "powuk:data_centre", "kind": "capability", "label": "Data Centre Capacity"},
+    {"id": "powuk:grid_connection", "kind": "equipment", "label": "Grid Connection"},
+    {"id": "powuk:transformer", "kind": "equipment", "label": "Distribution Transformer"},
+    {"id": "powuk:electrical_steel", "kind": "resource", "label": "Electrical Steel"},
+    {"id": "powuk:hv_electrician", "kind": "capability", "label": "HV Electrician"}
   ],
   "edges": [
-    {"id": "edge:dc_grid", "source": "uk:data_centre_capacity", "target": "uk:grid_connection_capacity", "relation": "REQUIRES"},
-    {"id": "edge:grid_transformer", "source": "uk:grid_connection_capacity", "target": "uk:transformer_capacity", "relation": "REQUIRES"},
-    {"id": "edge:transformer_steel", "source": "uk:transformer_capacity", "target": "uk:electrical_steel_supply", "relation": "REQUIRES"},
-    {"id": "edge:grid_hv", "source": "uk:grid_connection_capacity", "target": "uk:hv_electrician", "relation": "REQUIRES"}
+    {"id": "edge:dc_grid", "source": "powuk:data_centre", "target": "powuk:grid_connection", "relation": "REQUIRES", "coefficient": 1.0, "coefficient_unit": "MW/MW"},
+    {"id": "edge:grid_trans", "source": "powuk:grid_connection", "target": "powuk:transformer", "relation": "REQUIRES", "coefficient": 0.5, "coefficient_unit": "units/MW"},
+    {"id": "edge:trans_steel", "source": "powuk:transformer", "target": "powuk:electrical_steel", "relation": "REQUIRES", "coefficient": 2.5, "coefficient_unit": "tonnes/unit"},
+    {"id": "edge:grid_electrician", "source": "powuk:grid_connection", "target": "powuk:hv_electrician", "relation": "REQUIRES", "coefficient": 0.01, "coefficient_unit": "workers/MW"}
   ],
   "observations": [
-    {"id": "obs:dc_capacity", "metric": "capacity", "subject": "uk:data_centre_capacity", "value": 5000, "unit": "MW", "as_of": "2026-09-01", "source": "powuk"},
-    {"id": "obs:grid_capacity", "metric": "capacity", "subject": "uk:grid_connection_capacity", "value": 2000, "unit": "MW", "as_of": "2026-09-01", "source": "powuk"},
-    {"id": "obs:transformer_capacity", "metric": "capacity", "subject": "uk:transformer_capacity", "value": 800, "unit": "units/year", "as_of": "2026-09-01", "source": "powflow"},
-    {"id": "obs:steel_capacity", "metric": "capacity", "subject": "uk:electrical_steel_supply", "value": 1200, "unit": "tonnes/year", "as_of": "2026-09-01", "source": "powflow"},
-    {"id": "obs:hv_electricians", "metric": "capacity", "subject": "uk:hv_electrician", "value": 340, "unit": "people", "as_of": "2026-09-01", "source": "powuk"}
+    {"id": "obs:dc_cap", "subject": "powuk:data_centre", "metric": "capacity", "value": 5000, "unit": "MW", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-15T00:00:00Z", "source_dataset": "powuk:planning"},
+    {"id": "obs:grid_cap", "subject": "powuk:grid_connection", "metric": "capacity", "value": 2000, "unit": "MW", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-01-15T00:00:00Z", "source_dataset": "powuk:neso"},
+    {"id": "obs:trans_cap", "subject": "powuk:transformer", "metric": "capacity", "value": 800, "unit": "units/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-02-01T00:00:00Z", "source_dataset": "powflow:industry"},
+    {"id": "obs:steel_cap", "subject": "powuk:electrical_steel", "metric": "capacity", "value": 1200, "unit": "tonnes/yr", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-03-01T00:00:00Z", "source_dataset": "powflow:trade"},
+    {"id": "obs:elec_cap", "subject": "powuk:hv_electrician", "metric": "capacity", "value": 340, "unit": "people", "effective_at": "2026-01-01T00:00:00Z", "observed_at": "2026-02-15T00:00:00Z", "source_dataset": "powuk:ons"}
   ],
   "evidence": [
-    {"id": "ev:grid_constraint", "claim": "Grid connections require transformer upgrades", "target": "edge:grid_transformer", "direction": "SUPPORTS", "source_uri": "https://neso.energy", "publisher": "NESO", "observed_at": "2026-09-01"},
-    {"id": "ev:steel_shortage", "claim": "Electrical steel lead times extending to 18 months", "target": "obs:steel_capacity", "direction": "QUANTIFIES", "source_uri": "https://example.com/steel", "publisher": "Industry Report", "observed_at": "2026-09-01", "value": 18, "unit": "months"}
+    {"id": "ev:neso_grid", "target": "obs:grid_cap", "direction": "SUPPORTS", "claim": "NESO connection queue data", "publisher": "NESO", "published_at": "2026-01-10T00:00:00Z", "source_uri": "https://neso.energy/data"},
+    {"id": "ev:steel_report", "target": "obs:steel_cap", "direction": "QUANTIFIES", "claim": "Industry report on transformer steel lead times", "publisher": "Industry", "published_at": "2025-11-01T00:00:00Z", "source_uri": null}
   ]
 }

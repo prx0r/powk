@@ -1,175 +1,180 @@
-# SPEC.md — POW/0.1
+# SPEC.md — POWKernel 0.2
 
-> The constraint interchange format for dependency networks.
+> Deterministic Layer-2 substrate for reconstructing dated dependency states
+> and running versioned models against them.
 
----
+## Purpose
 
-## Question
+POWKernel reconstructs what we believed about a dependency network at any historical date,
+and runs versioned models against that reconstruction.
 
-Given evidence about a dependency network changing through time, what is constrained, why, how strongly, and what happens if something changes?
-
----
+It does not tell us what economics is true.
 
 ## Objects
 
+Five canonical types. Nothing else exists in the kernel.
+
 ### NODE
 
-Something whose capacity or state might matter.
+A stable logical referent. IDs are domain-supplied, not content-addressed.
 
 ```json
 {
-  "id": "string (content-addressed)",
-  "kind": "capability | equipment | resource | skill | component | capacity",
-  "label": "string"
+  "id": "powuk:capability:soc2020:5241",
+  "kind": "capability",
+  "label": "Electricians and electrical fitters"
 }
 ```
+
+If the label changes, the entity persists.
 
 ### EDGE
 
-A dependency. Direction is strict: A REQUIRES B means A cannot scale without B.
+A structural dependency: A REQUIRES B. Contains only the structural proposition
+and optionally a coefficient.
 
 ```json
 {
-  "id": "string (content-addressed)",
-  "source": "node.id",
-  "target": "node.id",
+  "id": "edge:a1b2c3d4e5f6g7h8",
+  "source": "powuk:data_centre",
+  "target": "powuk:grid_connection",
   "relation": "REQUIRES",
-  "requirement": {
-    "quantity_per_unit": "float | null",
-    "unit": "string | null"
-  },
-  "supply": {
-    "capacity": "float | null",
-    "utilisation": "float | null",
-    "growth_rate": "float | null",
-    "lead_time_days": "float | null"
-  },
-  "substitution": {
-    "substitutability": "float 0-1 | null",
-    "switching_cost": "float | null"
-  },
-  "timing": {
-    "needed_by": "ISO date | null",
-    "capacity_available_by": "ISO date | null"
-  }
+  "coefficient": 1.0,
+  "coefficient_unit": "MW/MW"
 }
 ```
+
+Time-varying properties (capacity, utilisation, lead_time) are OBSERVATIONs targeting this edge.
 
 ### OBSERVATION
 
-Something we actually measured.
+A time-varying measurement. Bitemporal: effective_at and observed_at.
 
 ```json
 {
-  "id": "string (content-addressed)",
-  "metric": "string",
-  "subject": "node.id | edge.id",
-  "value": "float | null",
-  "unit": "string | null",
-  "as_of": "ISO date",
-  "source": "string"
+  "id": "obs:x1y2z3w4a5b6c7d8",
+  "subject": "powuk:transformer",
+  "metric": "capacity",
+  "value": 800,
+  "unit": "units/yr",
+  "effective_at": "2026-01-01T00:00:00Z",
+  "observed_at": "2026-02-01T00:00:00Z",
+  "source_dataset": "powflow:industry"
 }
 ```
 
-Missing = `null`. Never `0`, never `"probably"`.
+Observations can target nodes or edges.
 
 ### EVIDENCE
 
-Supports an observation or dependency. Three articles repeating one manufacturer statement are one source, not three.
+Why should I believe this record? Does not contain the numeric value.
 
 ```json
 {
-  "id": "string (content-addressed)",
-  "claim": "string",
-  "target": "observation.id | edge.id",
-  "direction": "QUANTIFIES | SUPPORTS | CONTRADICTS",
-  "source_uri": "string | null",
-  "publisher": "string | null",
-  "published_at": "ISO date | null",
-  "observed_at": "ISO date",
-  "lineage_root": "string | null",
-  "value": "float | null",
-  "unit": "string | null"
+  "id": "ev:...",
+  "target": "obs:...",
+  "direction": "SUPPORTS",
+  "claim": "NESO connection queue data",
+  "publisher": "NESO",
+  "published_at": "2026-01-10T00:00:00Z",
+  "retrieved_at": "2026-01-15T00:00:00Z",
+  "lineage_root": "neso:document:123",
+  "content_hash": "sha256:..."
 }
 ```
 
 ### DERIVATION
 
-Computed state. Never overwrites evidence.
+Computed output from a versioned model. Includes model identity and exact inputs
+for reproducibility.
 
 ```json
 {
-  "id": "string (content-addressed)",
-  "kind": "string",
-  "subject": "node.id | edge.id",
-  "value": "float | null",
-  "as_of": "ISO date",
-  "model": "string (versioned)",
-  "inputs": ["obs:...", "edge:..."],
-  "unknowns": ["string"]
+  "id": "deriv:...",
+  "kind": "constraint_pressure",
+  "subject": "edge:...",
+  "value": 0.84,
+  "unit": "ratio",
+  "effective_at": "2026-09-01T00:00:00Z",
+  "model": "pressure/1.0.0",
+  "model_hash": "a1b2c3d4e5f6g7h8",
+  "inputs": ["obs:abc", "obs:def"],
+  "unknowns": ["powuk:transformer.capacity"]
 }
 ```
 
----
+## Invariants
 
-## Rules
+1. Layer-1 sources never depend on POWKernel.
+2. Kernel knows no domain semantics.
+3. Dependency direction is only A REQUIRES B.
+4. Nodes have stable domain IDs; immutable records are content-addressed.
+5. Edge structural state is separated from time-varying observations.
+6. Missing data is null; unknown conclusions remain UNKNOWN.
+7. Evidence, observation and inference are separate.
+8. History is append-only.
+9. World time and knowledge time are distinct.
+10. Every model is versioned and identified by code hash.
+11. Every derivation lists exact inputs.
+12. Same snapshot + same model bytes = same derivation.
+13. Counterfactuals create snapshots; they never mutate history.
+14. Kernel topology contains no economic constants or heuristic weights.
+15. A feature requiring domain-specific branching does not belong in the kernel.
 
-1. **Direction**: A REQUIRES B. That is the only edge type initially.
-2. **Unknown = null**: Missing data is null, never zero or estimated silently.
-3. **Append-only**: Never rewrite history. Append new observations.
-4. **Evidence ≠ inference**: Source evidence and computed derivations are different objects.
-5. **Content-addressed IDs**: `id = sha256(canonical(object))`. Same inputs = same ID.
-6. **Versioned models**: If the model changes, create a new version. Old outputs remain reproducible.
-7. **Replayable**: Any derivation can be recomputed from its inputs.
+## Operations
 
----
+### Snapshot Building
 
-## Forbidden in the kernel
-
-collectors, UK-specific logic, APIs, dashboards, trading, agents, tasks, grants, permissions, cryptographic signatures, belief models, autonomous execution, scrapers, LLM research agents.
-
----
-
-## Transforms
-
-Six pure functions over the graph:
-
-```
-constraint(graph, observations)  → derivations
-propagate(graph, shock)          → affected nodes
-relieve(graph, bottleneck)       → alternative paths
-shock(graph, node, delta)        → propagation cascade
-criticality(graph)               → node criticality scores
-unknowns(graph, observations)    → missing data map
+```python
+snapshot = graph.build_snapshot(at="2026-09-01", mode="world")
 ```
 
----
+Reconstructs nodes, edges, observations, and evidence valid at time t.
 
-## Storage
+### Graph Traversal
 
-Append-only JSONL. One line per object. Content-addressed filenames.
-
-```
-store/
-  nodes/
-  edges/
-  observations/
-  evidence/
-  derivations/
-```
-
----
-
-## Models
+Pure topology, no economics:
 
 ```
-models/
-  pressure_v1.py    demand/supply ratio
-  seesaw_v1.py      MDTP/CA (research hypothesis, not truth)
+upstream(node)      — what does this depend on?
+downstream(node)    — what depends on this?
+paths(a, b)         — all paths between nodes
+roots()             — nodes with no incoming edges
+leaves()            — nodes with no outgoing edges
 ```
 
-All consume the same evidence snapshot. All output derivations. Historical data tells us which predicts.
+### Counterfactuals
 
----
+```python
+scenario = snapshot.with_override(subject="transformer", metric="capacity", value=200)
+result = model.compute(scenario)
+```
 
-*This spec is the truth. Implementations validate against it.*
+Creates a new immutable snapshot. The original is never mutated.
+
+### Unknowns
+
+Reports missing observations for each node, driving the Layer 1 feedback loop.
+
+### Model Interface
+
+```python
+class Model:
+    name: str
+    version: str
+    model_hash: str  # SHA-256 of model code
+
+    def required_inputs(self) -> list: ...
+    def compute(snapshot: Snapshot) -> List[Derivation]: ...
+```
+
+## What is NOT in the kernel
+
+- No collectors, APIs, websites, or scrapers
+- No domain-specific logic (no electricians, transformers, GPUs, coins)
+- No economic constants or heuristic weights
+- No ML frameworks or dependencies
+- No trading, portfolio, or market assumptions
+- No dashboards, alerting, or monitoring
+- No LLMs or research agents
+- Stdlib Python only
