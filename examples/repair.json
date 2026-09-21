@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {"id": "repair:inverter_stock", "kind": "equipment", "label": "Installed inverter stock"},
+    {"id": "repair:capacitor_supply", "kind": "component", "label": "Replacement capacitor supply"},
+    {"id": "repair:replacement_part", "kind": "component", "label": "Inverter replacement parts"},
+    {"id": "repair:technician_skill", "kind": "capability", "label": "Qualified repair technicians"}
+  ],
+  "edges": [
+    {"id": "edge:inv_cap", "source": "repair:inverter_stock", "target": "repair:capacitor_supply", "relation": "REQUIRES"},
+    {"id": "edge:inv_part", "source": "repair:inverter_stock", "target": "repair:replacement_part", "relation": "REQUIRES"},
+    {"id": "edge:inv_tech", "source": "repair:inverter_stock", "target": "repair:technician_skill", "relation": "REQUIRES"}
+  ],
+  "observations": [
+    {"id": "obs:inverter_stock", "metric": "capacity", "subject": "repair:inverter_stock", "value": 50000, "unit": "units", "as_of": "2026-09-01", "source": "powrepair"},
+    {"id": "obs:cap_supply", "metric": "capacity", "subject": "repair:capacitor_supply", "value": 200, "unit": "units/month", "as_of": "2026-09-01", "source": "powrepair"},
+    {"id": "obs:part_supply", "metric": "capacity", "subject": "repair:replacement_part", "value": 50, "unit": "units/month", "as_of": "2026-09-01", "source": "powrepair"},
+    {"id": "obs:tech_count", "metric": "capacity", "subject": "repair:technician_skill", "value": 45, "unit": "people", "as_of": "2026-09-01", "source": "powrepair"}
+  ],
+  "evidence": [
+    {"id": "ev:cap_shortage", "claim": "Capacitor shortage affecting solar inverter repairs", "target": "obs:cap_supply", "direction": "QUANTIFIES", "source_uri": "https://example.com/repair", "publisher": "Repair Network", "observed_at": "2026-09-01", "value": 200, "unit": "units/month"}
+  ]
+}

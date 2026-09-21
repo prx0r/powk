@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {"id": "compute:ai_inference", "kind": "capacity", "label": "AI inference capacity"},
+    {"id": "compute:gpu_supply", "kind": "equipment", "label": "GPU supply"},
+    {"id": "compute:hbm_supply", "kind": "component", "label": "HBM memory supply"},
+    {"id": "compute:fab_capacity", "kind": "equipment", "label": "Semiconductor fab capacity"}
+  ],
+  "edges": [
+    {"id": "edge:ai_gpu", "source": "compute:ai_inference", "target": "compute:gpu_supply", "relation": "REQUIRES"},
+    {"id": "edge:gpu_hbm", "source": "compute:gpu_supply", "target": "compute:hbm_supply", "relation": "REQUIRES"},
+    {"id": "edge:hbm_fab", "source": "compute:hbm_supply", "target": "compute:fab_capacity", "relation": "REQUIRES"}
+  ],
+  "observations": [
+    {"id": "obs:ai_capacity", "metric": "capacity", "subject": "compute:ai_inference", "value": 10000, "unit": "PFLOPS", "as_of": "2026-09-01", "source": "powcompute"},
+    {"id": "obs:gpu_capacity", "metric": "capacity", "subject": "compute:gpu_supply", "value": 2000000, "unit": "units/year", "as_of": "2026-09-01", "source": "powcompute"},
+    {"id": "obs:hbm_capacity", "metric": "capacity", "subject": "compute:hbm_supply", "value": 500, "unit": "TB/year", "as_of": "2026-09-01", "source": "powcompute"},
+    {"id": "obs:fab_capacity", "metric": "capacity", "subject": "compute:fab_capacity", "value": 100, "unit": "wafers/month", "as_of": "2026-09-01", "source": "powcompute"}
+  ],
+  "evidence": [
+    {"id": "ev:hbm_bottleneck", "claim": "HBM3E production constrained by advanced packaging", "target": "obs:hbm_capacity", "direction": "QUANTIFIES", "source_uri": "https://example.com/semicon", "publisher": "Industry Analysis", "observed_at": "2026-09-01", "value": 500, "unit": "TB/year"}
+  ]
+}
