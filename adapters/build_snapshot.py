@@ -5,6 +5,7 @@ merges them into a single Graph, and builds a dated snapshot.
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from pow.unknowns import summary
 from pow.canonical import make_id
 
 
-EXPORTS_DIR = Path("/home/ubuntu/powk/exports")
+EXPORTS_DIR = Path(os.environ.get("POWK_EXPORT_DIR", "exports"))
 
 
 def load_export(garden_name):

@@ -13,12 +13,13 @@ Exports to powk JSONL:
 """
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Add powpowpow to path for imports
-POWPOWPOW = Path("/home/ubuntu/powpowpow")
+# Configurable via environment
+POWPOWPOW = Path(os.environ.get("POWPOWPOW_PATH", "/home/ubuntu/powpowpow"))
 sys.path.insert(0, str(POWPOWPOW))
 
 from pow.canonical import make_id
@@ -27,7 +28,7 @@ from pow.model import (
     make_edge_id, make_obs_id, make_ev_id,
 )
 
-EXPORT_DIR = Path("/home/ubuntu/powk/exports/powpowpow")
+EXPORT_DIR = Path(os.environ.get("POWK_EXPORT_DIR", "exports/powpowpow"))
 
 
 def load_json(path):
