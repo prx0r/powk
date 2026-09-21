@@ -161,7 +161,7 @@ def export_observations():
             value = state.get(raw_metric)
             if value is not None and isinstance(value, (int, float)):
                 observations.append(Observation(
-                    id=make_obs_id(subject, metric, effective, "powpowpow:network_state"),
+                    id=make_obs_id(subject, metric, float(value), unit, effective, now, "powpowpow:network_state"),
                     subject=subject,
                     metric=metric,
                     value=float(value),
@@ -180,7 +180,8 @@ def export_evidence(observations):
     for obs in observations:
         ev_id = make_ev_id(obs.id, "SUPPORTS",
                            f"Chain state: {obs.subject} {obs.metric}={obs.value}",
-                           "powpowpow")
+                           publisher="powpowpow",
+                           published_at=obs.observed_at)
         evidence.append(Evidence(
             id=ev_id,
             target=obs.id,

@@ -1,14 +1,18 @@
-"""Graph — in-memory container and snapshot builder.
+"""Graph — in-memory append-only container and snapshot builder.
 
-The graph stores the full append-only history. The Snapshot is a
-time-travelled view of the graph at a specific point in time.
+The graph stores the full history. The Snapshot is a time-travelled view.
+Append-only: same ID + same bytes = no-op, same ID + different bytes = ConflictError.
 """
 
 from typing import Optional
-from datetime import datetime, timezone
 
 from .model import Node, Edge, Observation, Evidence, Derivation
 from .snapshot import Snapshot
+
+
+class ConflictError(Exception):
+    """Raised when adding an object with an existing ID but different bytes."""
+    pass
 
 
 class Graph:
@@ -18,28 +22,44 @@ class Graph:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, Edge] = {}
         self.observations: list[Observation] = []
+        self._obs_index: set[str] = set()  # track observation IDs for dedup
         self.evidence: dict[str, Evidence] = {}
         self.derivations: list[Derivation] = []
 
     def add(self, obj) -> None:
+        """Add an object. Idempotent for identical bytes, raises on conflict."""
         if isinstance(obj, Node):
+            existing = self.nodes.get(obj.id)
+            if existing is not None:
+                if existing.to_dict() == obj.to_dict():
+                    return  # no-op
+                raise ConflictError(f"Node {obj.id} exists with different data")
             self.nodes[obj.id] = obj
+
         elif isinstance(obj, Edge):
+            existing = self.edges.get(obj.id)
+            if existing is not None:
+                if existing.to_dict() == obj.to_dict():
+                    return
+                raise ConflictError(f"Edge {obj.id} exists with different data")
             self.edges[obj.id] = obj
+
         elif isinstance(obj, Observation):
+            if obj.id in self._obs_index:
+                return  # idempotent — observations are append-only by ID
             self.observations.append(obj)
+            self._obs_index.add(obj.id)
+
         elif isinstance(obj, Evidence):
+            existing = self.evidence.get(obj.id)
+            if existing is not None:
+                if existing.to_dict() == obj.to_dict():
+                    return
+                raise ConflictError(f"Evidence {obj.id} exists with different data")
             self.evidence[obj.id] = obj
+
         elif isinstance(obj, Derivation):
             self.derivations.append(obj)
-
-    def remove(self, obj) -> None:
-        if isinstance(obj, Node):
-            self.nodes.pop(obj.id, None)
-        elif isinstance(obj, Edge):
-            self.edges.pop(obj.id, None)
-        elif isinstance(obj, Evidence):
-            self.evidence.pop(obj.id, None)
 
     def node(self, node_id: str) -> Optional[Node]:
         return self.nodes.get(node_id)
@@ -94,12 +114,12 @@ class Graph:
         return list(visited)
 
     def roots(self) -> list:
-        """Nodes with no incoming edges (top-level dependents)."""
+        """Nodes with no incoming edges."""
         targets = {e.target for e in self.edges.values()}
         return [nid for nid in self.nodes if nid not in targets]
 
     def leaves(self) -> list:
-        """Nodes with no outgoing edges (base resources)."""
+        """Nodes with no outgoing edges."""
         sources = {e.source for e in self.edges.values()}
         return [nid for nid in self.nodes if nid not in sources]
 
@@ -140,14 +160,13 @@ class Graph:
             candidates = [o for o in candidates if o.effective_at <= before]
         if not candidates:
             return None
-        return max(candidates, key=lambda o: o.effective_at)
+        return max(candidates, key=lambda o: (o.effective_at, o.observed_at, o.id))
 
     def build_snapshot(self, at: str, mode: str = "world") -> Snapshot:
         """Build a dated snapshot of the graph.
 
-        For mode="world": includes nodes/edges valid at time `at`,
-        and the latest observation with effective_at <= at.
-        For mode="knowledge": includes only observations with observed_at <= at.
+        For mode="world": nodes/edges valid at time at, latest observation by (effective_at, observed_at, id).
+        For mode="knowledge": additionally requires observed_at <= at and evidence.retrieved_at <= at.
         """
         # Filter nodes valid at time at
         nodes = {}
@@ -158,19 +177,21 @@ class Graph:
                 continue
             nodes[nid] = node
 
-        # Filter edges valid at time at
+        # Filter edges valid at time at, with knowledge-time check
         edges = {}
         for eid, edge in self.edges.items():
             if edge.valid_from and edge.valid_from > at:
                 continue
             if edge.valid_to and edge.valid_to <= at:
                 continue
-            # Both endpoints must exist
+            if mode == "knowledge" and hasattr(edge, 'observed_at') and edge.observed_at:
+                if edge.observed_at > at:
+                    continue
             if edge.source not in nodes or edge.target not in nodes:
                 continue
             edges[eid] = edge
 
-        # Get latest admissible observations
+        # Get latest admissible observations, deterministically by (effective_at, observed_at, id)
         obs_map = {}  # (subject, metric) -> latest Observation
         for o in self.observations:
             if o.subject not in nodes and o.subject not in edges:
@@ -180,16 +201,30 @@ class Graph:
             if o.effective_at > at and o.observed_at > at:
                 continue
             key = (o.subject, o.metric)
-            if key not in obs_map or o.effective_at > obs_map[key].effective_at:
+            if key not in obs_map:
                 obs_map[key] = o
+            else:
+                existing = obs_map[key]
+                # Choose by (effective_at, observed_at, id) — deterministic
+                if (o.effective_at, o.observed_at, o.id) > (existing.effective_at, existing.observed_at, existing.id):
+                    obs_map[key] = o
 
         # Evidence attached to surviving observations and edges
+        # For knowledge mode: evidence must be available at snapshot time
         surviving_obs_ids = {o.id for o in obs_map.values()}
         surviving_edge_ids = set(edges.keys())
         ev_map = {}
         for evid, ev in self.evidence.items():
-            if ev.target in surviving_obs_ids or ev.target in surviving_edge_ids:
-                ev_map[evid] = ev
+            if ev.target not in surviving_obs_ids and ev.target not in surviving_edge_ids:
+                continue
+            if mode == "knowledge":
+                # Evidence must have been available by snapshot time
+                available_at = ev.retrieved_at or ev.published_at
+                if available_at and available_at > at:
+                    continue
+                elif not available_at:
+                    continue  # missing timestamps = treat as not contemporaneously available
+            ev_map[evid] = ev
 
         return Snapshot(
             at=at,
@@ -206,13 +241,19 @@ class Graph:
         with open(path) as f:
             data = json.load(f)
         for item in data.get("nodes", []):
-            self.add(Node(**item))
+            self.add(Node(**{k: item[k] for k in ("id", "kind", "label") if k in item}))
         for item in data.get("edges", []):
-            self.add(Edge(**item))
+            self.add(Edge(**{k: item[k] for k in
+                ("id", "source", "target", "relation", "coefficient", "coefficient_unit",
+                 "valid_from", "valid_to") if k in item}))
         for item in data.get("observations", []):
-            self.add(Observation(**item))
+            self.add(Observation(**{k: item[k] for k in
+                ("id", "subject", "metric", "value", "unit",
+                 "effective_at", "observed_at", "source_dataset") if k in item}))
         for item in data.get("evidence", []):
-            self.add(Evidence(**item))
+            self.add(Evidence(**{k: item[k] for k in
+                ("id", "target", "direction", "claim", "source_uri", "publisher",
+                 "published_at", "retrieved_at", "lineage_root", "content_hash") if k in item}))
 
     def stats(self) -> dict:
         return {

@@ -166,7 +166,7 @@ def export_observations():
         subject = f"repair:category:{category.lower().replace(' ', '_')}"
         metric = f"repair_count_{status.lower().replace(' ', '_')}"
         observations.append(Observation(
-            id=make_obs_id(subject, metric, now, "repair:open_repair"),
+            id=make_obs_id(subject, metric, float(count), "devices", now, now, "repair:open_repair"),
             subject=subject,
             metric=metric,
             value=float(count),
@@ -190,7 +190,7 @@ def export_observations():
             continue
         subject = f"repair:category:{category.lower().replace(' ', '_')}"
         observations.append(Observation(
-            id=make_obs_id(subject, "total_repairs", now, "repair:open_repair"),
+            id=make_obs_id(subject, "total_repairs", float(count), "devices", now, now, "repair:open_repair"),
             subject=subject,
             metric="total_repairs",
             value=float(count),
@@ -210,7 +210,7 @@ def export_evidence(observations):
     for obs in observations:
         ev_id = make_ev_id(obs.id, "SUPPORTS",
                            f"Open Repair: {obs.subject} {obs.metric}={obs.value}",
-                           "open_repair")
+                           publisher="Open Repair Alliance")
         evidence.append(Evidence(
             id=ev_id,
             target=obs.id,

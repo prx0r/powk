@@ -133,7 +133,7 @@ class Snapshot:
         """
         from .model import make_obs_id
         new_obs = Observation(
-            id=make_obs_id(subject, metric, self.at, source_dataset),
+            id=make_obs_id(subject, metric, value, unit, self.at, self.at, source_dataset),
             subject=subject,
             metric=metric,
             value=value,

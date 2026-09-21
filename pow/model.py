@@ -183,16 +183,30 @@ def make_edge_id(source: str, target: str, relation: str = "REQUIRES") -> str:
     return make_id("edge", {"source": source, "target": target, "relation": relation})
 
 
-def make_obs_id(subject: str, metric: str, effective_at: str, source_dataset: str) -> str:
-    """Observation ID from its identity fields (content-addressed)."""
-    return make_id("obs", {"subject": subject, "metric": metric,
-                           "effective_at": effective_at, "source_dataset": source_dataset})
+def make_obs_id(subject: str, metric: str, value, unit: str,
+                effective_at: str, observed_at: str, source_dataset: str) -> str:
+    """Observation ID — hashes the complete immutable body.
+
+    Different revisions produce different IDs.
+    """
+    return make_id("obs", {
+        "subject": subject, "metric": metric,
+        "value": value, "unit": unit,
+        "effective_at": effective_at, "observed_at": observed_at,
+        "source_dataset": source_dataset,
+    })
 
 
-def make_ev_id(target: str, direction: str, claim: str, publisher: str = "") -> str:
-    """Evidence ID (content-addressed)."""
-    return make_id("ev", {"target": target, "direction": direction,
-                          "claim": claim, "publisher": publisher})
+def make_ev_id(target: str, direction: str, claim: str, source_uri: str = "",
+               publisher: str = "", published_at: str = "", retrieved_at: str = "",
+               lineage_root: str = "", content_hash: str = "") -> str:
+    """Evidence ID — hashes the complete immutable body."""
+    return make_id("ev", {
+        "target": target, "direction": direction, "claim": claim,
+        "source_uri": source_uri, "publisher": publisher,
+        "published_at": published_at, "retrieved_at": retrieved_at,
+        "lineage_root": lineage_root, "content_hash": content_hash,
+    })
 
 
 def make_deriv_id(kind: str, subject: str, model: str, model_hash: str,

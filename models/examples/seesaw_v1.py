@@ -20,13 +20,13 @@ class SeesawV1(Model):
     name = "seesaw"
     version = "1.0.0"
 
-    def required_inputs(self) -> list:
+    def requirements(self, snapshot=None):
         return [
-            ("market_concentration", "any"),
-            ("demand_growth", "any"),
-            ("tech_lockin", "any"),
-            ("capacity_headroom", "any"),
-            ("alternative_availability", "any"),
+            {"subject_kind": "any", "metric": "market_concentration"},
+            {"subject_kind": "any", "metric": "demand_growth"},
+            {"subject_kind": "any", "metric": "tech_lockin"},
+            {"subject_kind": "any", "metric": "capacity_headroom"},
+            {"subject_kind": "any", "metric": "alternative_availability"},
         ]
 
     def compute(self, snapshot: Snapshot) -> List[Derivation]:

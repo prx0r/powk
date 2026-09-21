@@ -1,7 +1,8 @@
-"""Store — append-only JSONL persistence.
+"""Store — content-addressed, write-once persistence.
 
-Each object type gets its own directory. Objects are stored as
-JSON lines, one per file keyed by content-addressed ID.
+Each object is stored as one immutable JSON file keyed by its ID.
+Writing the same bytes twice is a no-op.
+Writing different bytes to the same ID raises ConflictError.
 """
 
 import json
@@ -10,8 +11,13 @@ from pathlib import Path
 from typing import Iterator
 
 
+class ConflictError(Exception):
+    """Raised when attempting to write different bytes to an existing record ID."""
+    pass
+
+
 class Store:
-    """Append-only JSONL store for POWKernel objects."""
+    """Content-addressed, write-once JSON store for POWKernel objects."""
 
     def __init__(self, root: str = "store"):
         self.root = Path(root)
@@ -19,10 +25,10 @@ class Store:
             (self.root / cat).mkdir(parents=True, exist_ok=True)
 
     def _path(self, category: str, obj_id: str) -> Path:
-        return self.root / category / f"{obj_id}.jsonl"
+        return self.root / category / f"{obj_id}.json"
 
     def append(self, obj) -> str:
-        """Append an object to its category file."""
+        """Write an object once. Idempotent for identical bytes, raises on collision."""
         from .model import Node, Edge, Observation, Evidence, Derivation
         d = obj.to_dict()
         if isinstance(obj, Node):
@@ -39,8 +45,21 @@ class Store:
             raise ValueError(f"Unknown type: {type(obj)}")
 
         path = self._path(cat, obj.id)
-        with open(path, "a") as f:
-            f.write(json.dumps(d, default=str) + "\n")
+        new_bytes = json.dumps(d, sort_keys=True, default=str).encode()
+
+        if path.exists():
+            existing = path.read_bytes()
+            if existing == new_bytes:
+                return str(path)  # idempotent no-op
+            raise ConflictError(
+                f"ID collision: {obj.id} exists with different bytes"
+            )
+
+        # Atomic write: write to tmp, then rename
+        tmp = path.with_suffix(".tmp")
+        with open(tmp, "wb") as f:
+            f.write(new_bytes)
+        os.replace(tmp, path)
         return str(path)
 
     def append_many(self, objects) -> list:
@@ -51,12 +70,9 @@ class Store:
         cat_dir = self.root / category
         if not cat_dir.exists():
             return
-        for p in sorted(cat_dir.glob("*.jsonl")):
+        for p in sorted(cat_dir.glob("*.json")):
             with open(p) as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        yield json.loads(line)
+                yield json.load(f)
 
     def load_all(self) -> dict:
         return {cat: list(self.load(cat))
@@ -64,6 +80,6 @@ class Store:
 
     def stats(self) -> dict:
         return {
-            cat: len(list((self.root / cat).glob("*.jsonl")))
+            cat: len(list((self.root / cat).glob("*.json")))
             for cat in ("nodes", "edges", "observations", "evidence", "derivations")
         }

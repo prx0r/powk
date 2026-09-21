@@ -3,18 +3,44 @@
 Usage:
     pow snapshot --at <time> [--mode world|knowledge] <fixture>
     pow deps <node_id> <fixture>
-    pow unknowns <fixture>
+    pow unknowns <fixture> [--model <model.py>]
     pow path <source> <target> <fixture>
     pow run-model <model_path> <fixture> [--at <time>]
-    pow shock <node_id> <metric> <value> <fixture> [--at <time>]
+    pow scenario --subject <id> --metric <m> --value <v> --snapshot <fixture> [--at <time>]
     pow stats <fixture>
 """
 
 import argparse
+import hashlib
 import json
 import sys
-import hashlib
 from pathlib import Path
+
+
+def _load_model(model_path):
+    """Load a Model subclass from a Python file, with verified hash."""
+    model_path = Path(model_path)
+    from pow.model_base import Model, hash_file
+    model_hash = hash_file(str(model_path))
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("model_module", str(model_path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    model = None
+    for attr in dir(mod):
+        obj = getattr(mod, attr)
+        if isinstance(obj, type) and issubclass(obj, Model) and obj is not Model:
+            model = obj()
+            break
+
+    if not model:
+        print(f"No Model subclass found in {model_path}")
+        sys.exit(1)
+
+    model._model_hash = model_hash
+    return model
 
 
 def cmd_snapshot(args):
@@ -51,7 +77,13 @@ def cmd_unknowns(args):
     from pow import Graph, unknowns
     g = load_fixture(args.fixture)
     snap = g.build_snapshot(args.at or "2099-01-01")
-    result = unknowns(snap)
+
+    requirements = None
+    if args.model:
+        model = _load_model(args.model)
+        requirements = model.requirements(snap)
+
+    result = unknowns(snap, requirements)
     print(f"\n  {'NODE':<30} {'KIND':<15} {'MISSING'}")
     print(f"  {'─'*30} {'─'*15} {'─'*30}")
     for u in result:
@@ -79,63 +111,43 @@ def cmd_run_model(args):
     from pow import Graph
     g = load_fixture(args.fixture)
     snap = g.build_snapshot(args.at or "2099-01-01")
-
-    # Load model
-    model_path = Path(args.model_path)
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("model_module", str(model_path))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    # Find Model subclass
-    from pow.model_base import Model
-    model = None
-    for attr in dir(mod):
-        obj = getattr(mod, attr)
-        if isinstance(obj, type) and issubclass(obj, Model) and obj is not Model:
-            model = obj()
-            break
-
-    if not model:
-        print(f"No Model subclass found in {args.model_path}")
-        sys.exit(1)
-
+    model = _load_model(args.model_path)
     derivations = model.compute(snap)
     print(json.dumps([d.to_dict() for d in derivations], indent=2))
 
 
-def cmd_shock(args):
+def cmd_scenario(args):
     from pow import Graph
     g = load_fixture(args.fixture)
     at = args.at or "2099-01-01"
     snap = g.build_snapshot(at)
 
-    # Create counterfactual snapshot
     scenario = snap.with_override(
-        subject=args.node_id,
+        subject=args.subject,
         metric=args.metric,
         value=float(args.value),
     )
 
-    # Run same model as compute
-    from models.examples.pressure_v1 import PressureV1
-    model = PressureV1()
+    if args.model:
+        model = _load_model(args.model)
+        original = model.compute(snap)
+        counterfactual = model.compute(scenario)
 
-    original = model.compute(snap)
-    counterfactual = model.compute(scenario)
-
-    print(f"\n  Shock: set {args.node_id}.{args.metric} = {args.value}")
-    print(f"\n  {'EDGE':<30} {'ORIGINAL':<15} {'SHOCKED':<15} {'DELTA'}")
-    print(f"  {'─'*30} {'─'*15} {'─'*15} {'─'*15}")
-    for o, c in zip(original, counterfactual):
-        ov = f"{o.value:.2f}" if o.value is not None else "—"
-        cv = f"{c.value:.2f}" if c.value is not None else "—"
-        if o.value is not None and c.value is not None:
-            delta = c.value - o.value
-            dv = f"{delta:+.2f}"
-        else:
-            dv = "—"
-        print(f"  {o.subject:<30} {ov:<15} {cv:<15} {dv}")
+        print(f"\n  Scenario: set {args.subject}.{args.metric} = {args.value}")
+        print(f"\n  {'SUBJECT':<30} {'ORIGINAL':<15} {'SCENARIO':<15} {'DELTA'}")
+        print(f"  {'─'*30} {'─'*15} {'─'*15} {'─'*15}")
+        for o, c in zip(original, counterfactual):
+            ov = f"{o.value:.2f}" if o.value is not None else "—"
+            cv = f"{c.value:.2f}" if c.value is not None else "—"
+            if o.value is not None and c.value is not None:
+                delta = c.value - o.value
+                dv = f"{delta:+.2f}"
+            else:
+                dv = "—"
+            print(f"  {o.subject:<30} {ov:<15} {cv:<15} {dv}")
+    else:
+        # No model: just show the scenario snapshot
+        print(json.dumps(scenario.to_dict(), indent=2))
     print()
 
 
@@ -176,6 +188,7 @@ def main():
     p = sub.add_parser("unknowns", help="Report missing data")
     p.add_argument("fixture", help="Path to fixture JSON")
     p.add_argument("--at", help="ISO timestamp")
+    p.add_argument("--model", help="Model file to get requirements from")
 
     # path
     p = sub.add_parser("path", help="Find paths between nodes")
@@ -190,12 +203,13 @@ def main():
     p.add_argument("fixture", help="Path to fixture JSON")
     p.add_argument("--at", help="ISO timestamp")
 
-    # shock
-    p = sub.add_parser("shock", help="Simulate a counterfactual shock")
-    p.add_argument("node_id", help="Node to shock")
-    p.add_argument("metric", help="Metric to override")
-    p.add_argument("value", help="New value")
-    p.add_argument("fixture", help="Path to fixture JSON")
+    # scenario (counterfactual)
+    p = sub.add_parser("scenario", help="Create a counterfactual scenario")
+    p.add_argument("--subject", required=True, help="Node/edge ID to override")
+    p.add_argument("--metric", required=True, help="Metric to override")
+    p.add_argument("--value", required=True, help="New value")
+    p.add_argument("--fixture", required=True, help="Path to fixture JSON")
+    p.add_argument("--model", help="Model to run against original and scenario")
     p.add_argument("--at", help="ISO timestamp")
 
     # stats
@@ -210,7 +224,7 @@ def main():
         "unknowns": cmd_unknowns,
         "path": cmd_path,
         "run-model": cmd_run_model,
-        "shock": cmd_shock,
+        "scenario": cmd_scenario,
         "stats": cmd_stats,
     }
 

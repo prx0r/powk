@@ -18,8 +18,8 @@ class PressureV1(Model):
     name = "pressure"
     version = "1.0.0"
 
-    def required_inputs(self) -> list:
-        return [("capacity", "any")]
+    def requirements(self, snapshot=None):
+        return [{"subject_kind": "any", "metric": "capacity"}]
 
     def compute(self, snapshot: Snapshot) -> List[Derivation]:
         derivations = []

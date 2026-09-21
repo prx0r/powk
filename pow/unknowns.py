@@ -1,39 +1,49 @@
-"""Explicit unknown tracking.
+"""Unknowns reporting.
 
-For each node in a snapshot, reports which standard metrics
-have no observation. This drives the Layer 1 → Layer 2 feedback loop.
+Reports which observations are absent from a snapshot.
+Does NOT invent requirements — those come from the model.
+
+Generic unknowns may report null fields already present,
+but must not invent an economic checklist.
 """
 
 from .snapshot import Snapshot
 
 
-# Standard metrics per node kind that a model might need
-REQUIRED_METRICS = {
-    "capability": ["capacity", "utilisation"],
-    "equipment": ["capacity", "lead_time"],
-    "resource": ["capacity", "growth_rate"],
-    "component": ["capacity"],
-    "capacity": ["capacity", "utilisation"],
-}
+def unknowns(snapshot: Snapshot, requirements: list = None) -> list:
+    """Report missing observations for each node.
 
-
-def unknowns(snapshot: Snapshot, required: dict = None) -> list:
-    """Report what data is missing for each node.
+    If requirements is provided, checks those specific (subject_kind, metric) pairs.
+    Otherwise reports all observations with null values.
 
     Returns list of:
-        {"node": node_id, "missing": ["metric1", "metric2"], "present": ["metric3"]}
+        {"node": node_id, "kind": node_kind, "label": node_label,
+         "missing": [...], "present": [...]}
     """
-    required = required or REQUIRED_METRICS
     results = []
 
     for nid, node in snapshot.nodes.items():
-        kind_metrics = required.get(node.kind, [])
         present = set()
+        null_metrics = set()
         for obs in snapshot.observations_for(nid):
-            present.add(obs.metric)
+            if obs.value is not None:
+                present.add(obs.metric)
+            else:
+                null_metrics.add(obs.metric)
 
-        missing = [m for m in kind_metrics if m not in present]
-        if missing or kind_metrics:
+        if requirements:
+            # Check model-specific requirements
+            missing = []
+            for req in requirements:
+                kind_match = req.get("subject_kind", "") == "" or req.get("subject_kind") == node.kind
+                metric = req.get("metric", "")
+                if kind_match and metric and metric not in present:
+                    missing.append(metric)
+        else:
+            # Generic: report null metrics
+            missing = sorted(null_metrics)
+
+        if missing or present:
             results.append({
                 "node": nid,
                 "kind": node.kind,
@@ -45,15 +55,26 @@ def unknowns(snapshot: Snapshot, required: dict = None) -> list:
     return results
 
 
-def unknowns_for_node(snapshot: Snapshot, node_id: str) -> dict:
+def unknowns_for_node(snapshot: Snapshot, node_id: str, requirements: list = None) -> dict:
     """Get unknowns for a specific node."""
     node = snapshot.node(node_id)
     if not node:
         return {"node": node_id, "error": "not found"}
 
-    kind_metrics = REQUIRED_METRICS.get(node.kind, [])
-    present = {obs.metric for obs in snapshot.observations_for(node_id)}
-    missing = [m for m in kind_metrics if m not in present]
+    present = set()
+    null_metrics = set()
+    for obs in snapshot.observations_for(node_id):
+        if obs.value is not None:
+            present.add(obs.metric)
+        else:
+            null_metrics.add(obs.metric)
+
+    if requirements:
+        missing = [r["metric"] for r in requirements
+                   if (r.get("subject_kind", "") == "" or r.get("subject_kind") == node.kind)
+                   and r["metric"] not in present]
+    else:
+        missing = sorted(null_metrics)
 
     return {
         "node": node_id,
@@ -64,9 +85,9 @@ def unknowns_for_node(snapshot: Snapshot, node_id: str) -> dict:
     }
 
 
-def summary(snapshot: Snapshot) -> dict:
+def summary(snapshot: Snapshot, requirements: list = None) -> dict:
     """Aggregate unknowns summary."""
-    all_unknowns = unknowns(snapshot)
+    all_unknowns = unknowns(snapshot, requirements)
     total_missing = sum(len(u["missing"]) for u in all_unknowns)
     nodes_with_gaps = sum(1 for u in all_unknowns if u["missing"])
     return {
